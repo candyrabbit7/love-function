@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>恋爱函数：要不要往前走一步</title>
+<meta name="description" content="输入心动程度、对方的回应和相处感受，按一个决策模型给出现在的区位和下一步建议。所有计算都在浏览器里完成。">
+<style>
+:root {
+  --bg: #f6f5f2; --card: #ffffff; --text: #1f2328; --muted: #646b73; --line: #e3e1dc;
+  --accent: #2a78d6; --accent-soft: #e6f0fb; --warn: #b4572a;
+  --z-none: #d9d9d9; --z-danger: #eec3c6; --z-flirt: #f4c98a; --z-serious: #8fbbe8; --z-long: #7cbf8e; --z-unicorn: #b48ad9;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181b; --card: #1f2226; --text: #e8e6e3; --muted: #a0a6ad; --line: #34383d;
+    --accent: #6aa8ef; --accent-soft: #22324a; --warn: #e0905f;
+    --z-none: #4a4d52; --z-danger: #6e4549; --z-flirt: #8a6a3a; --z-serious: #3e6a96; --z-long: #3e7a52; --z-unicorn: #7a5a9e;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+main { max-width: 560px; margin: 0 auto; padding: 16px 16px 48px; }
+h1 { font-size: 26px; margin: 8px 0 2px; }
+.sub { color: var(--muted); margin: 0 0 12px; }
+.note { font-size: 13px; color: var(--muted); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 12px 0; }
+.card h2 { font-size: 17px; margin: 0 0 10px; }
+.q { margin: 14px 0 0; }
+.q:first-of-type { margin-top: 0; }
+.q label.title { display: block; font-weight: 600; margin-bottom: 6px; }
+.help { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button { flex: 1 1 auto; min-width: 84px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px;
+  background: transparent; color: var(--text); font: inherit; font-size: 15px; cursor: pointer; }
+.seg button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.row { display: flex; align-items: center; gap: 10px; }
+input[type=range] { flex: 1; accent-color: var(--accent); }
+.val { min-width: 44px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stepper { display: flex; align-items: center; gap: 8px; }
+.stepper button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: transparent;
+  color: var(--text); font-size: 20px; line-height: 1; cursor: pointer; }
+.stepper span { min-width: 28px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; margin-bottom: 6px; }
+.disabled { opacity: 0.45; pointer-events: none; }
+.result { border: 2px solid var(--accent); }
+.zone { display: inline-block; padding: 3px 10px; border-radius: 999px; font-weight: 600; font-size: 14px; color: #1f2328; }
+.tag { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--z-unicorn); color: #fff; }
+.advice { font-size: 22px; font-weight: 700; margin: 10px 0 4px; }
+.why { margin: 4px 0; }
+.probs { display: flex; height: 10px; border-radius: 6px; overflow: hidden; margin: 8px 0 2px; }
+.probs div { height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+ul.tips { margin: 8px 0 0; padding-left: 20px; font-size: 14px; color: var(--muted); }
+canvas { width: 100%; height: auto; display: block; border-radius: 8px; }
+details { margin: 8px 0; }
+details summary { cursor: pointer; font-weight: 600; }
+details p, details li { font-size: 14px; }
+.toggle { font-size: 13px; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; font: inherit; font-size: 13px; }
+footer { font-size: 12px; color: var(--muted); text-align: center; margin-top: 24px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>恋爱函数</h1>
+  <p class="sub">对一个你见过或认识的人：现在要不要往前走一步？</p>
+  <p class="note">所有计算都在你的浏览器里完成，不会上传任何内容。不需要、也请不要输入任何人的名字。</p>
+
+  <section class="card" id="form">
+    <div class="q">
+      <label class="title">1. 你们现在到哪一步了？</label>
+      <div class="seg" data-name="stage">
+        <button data-v="0">只见过</button><button data-v="1">聊过几次</button><button data-v="2">已经熟了</button>
+      </div>
+    </div>
+    <div class="q">
+      <label class="title">2. 认识多久了？</label>
+      <div class="seg" data-name="weeks">
+        <button data-v="3">不到 1 个月</button><button data-v="6">1–2 个月</button><button data-v="12">2–4 个月</button>
+        <button data-v="26">4–8 个月</button><button data-v="52">8 个月以上</button>
+      </div>
+    </div>
+    <div class="q">
+      <label class="title">3. 你有多心动？</label>
+      <div class="row"><input type="range" id="x" min="0" max="10" step="1"><span class="val" id="xv"></span></div>
+      <p class="help">0 = 没感觉，5 = 有点好感，7 = 认真喜欢，10 = 非常心动。颜值、身材、相处的感觉都算在里面。</p>
+    </div>
+    <div class="q" id="yq">
+      <label class="title">4. TA 相处时的「作妖」程度</label>
+      <label class="check"><input type="checkbox" id="yunk"> 还看不出来</label>
+      <div class="row" id="yrow"><input type="range" id="y" min="4" max="10" step="1"><span class="val" id="yv"></span></div>
+      <p class="help">从 4 开始：人人都有一点。看三件事：吵架时攻不攻击人、爱不爱反复试探你、情绪起伏大不大。只见过一面时看不出来，这一项不用填。</p>
+    </div>
+    <div class="q" id="signals">
+      <label class="title">5. 最近 TA 对你的回应</label>
+      <div class="two">
+        <div><div class="note">热情的次数</div><div class="stepper" data-name="warm"><button>−</button><span>0</span><button>+</button></div></div>
+        <div><div class="note">冷淡的次数</div><div class="stepper" data-name="cold"><button>−</button><span>0</span><button>+</button></div></div>
+      </div>
+      <p class="help">热情：主动接话、回得认真、愿意一起做事。冷淡：明显敷衍、回避。偶尔一次冷淡可能只是 TA 忙或心情不好，不用太在意，模型也是这么算的。</p>
+    </div>
+    <div class="q">
+      <label class="title">6. TA 整体给你的感觉</label>
+      <div class="seg" data-name="prior">
+        <button data-v="unsure">看不出来</button><button data-v="warm">好像对我也有点意思</button><button data-v="cool">好像没什么兴趣</button>
+      </div>
+    </div>
+    <details class="q">
+      <summary>7. 关于你自己（可选）</summary>
+      <div class="q">
+        <label class="title">被拒绝对你的打击</label>
+        <div class="seg" data-name="reject"><button data-v="low">小</button><button data-v="mid">一般</button><button data-v="high">很大</button></div>
+      </div>
+      <div class="q">
+        <label class="title">错过一个本来可能成的人，你会后悔多久</label>
+        <div class="seg" data-name="miss"><button data-v="low">很快放下</button><button data-v="mid">一般</button><button data-v="high">很久</button></div>
+      </div>
+    </details>
+  </section>
+
+  <section class="card result" id="result" aria-live="polite">
+    <div><span class="zone" id="zone"></span><span id="unicorn"></span>
+      <button class="toggle" id="meme" style="float:right">梗版名字</button></div>
+    <div id="probbox"></div>
+    <div class="advice" id="advice"></div>
+    <p class="why" id="why"></p>
+    <p class="why note" id="why2"></p>
+    <ul class="tips" id="tips"></ul>
+  </section>
+
+  <section class="card">
+    <h2>恋爱函数图</h2>
+    <p class="note" id="charthint"></p>
+    <canvas id="chart" width="1040" height="680"></canvas>
+    <div class="legend" id="legend"></div>
+    <p class="note"><button class="toggle" id="chartmode">切换到原图</button></p>
+  </section>
+
+  <section class="card">
+    <h2>这是怎么算的</h2>
+    <details><summary>一句话</summary>
+      <p>把「要不要往前一步」写成一个随相处推进的决策问题：每走一步都可能被拒，但也能从 TA 的回应里多知道一点；等太久，TA 可能有了别人或离开这个圈子。模型算出在每种情况下怎么做期望上最划算，再把结果写成简单的规则。</p></details>
+    <details><summary>区位是怎么来的</summary>
+      <p>来自网上流传的「外貌 × 作妖」分区图，作妖从 4 开始。我们没有照搬它，而是用一个「先筛选、再权衡」的价值模型重新算出各区的边界：心动先要过门槛（5 分才值得接触，7 分才谈得上认真），然后在心动带来的好处和作妖带来的消耗之间权衡；关系越长，作妖的消耗越被放大。原图要心动 8 分才算认真，我们放宽到了 7 分：心动 7 分的人也会认真交往。按放宽后的门槛，模型的边界和原图一致约 <span id="agree"></span>；和原图原样相比一致约 <span id="agree2"></span>，差别主要在心动 7–8 分这一条。</p></details>
+    <details><summary>主要假设</summary>
+      <ul>
+        <li>TA 对你有没有意思，一开始只能靠整体感觉估计，之后每一次回应都会更新这个判断。</li>
+        <li>出于礼貌，不感兴趣的人也常常热情回应，所以热情说明的问题比冷淡少。</li>
+        <li>每过一周，TA 有大约 3% 的可能有了别人或离开这个圈子。这个数是假设的。</li>
+        <li>被拒的难受来得快、走得快；错过的后悔来得慢、持续久。默认值参考了一位用户的真实打分和相关研究的方向，可以在第 7 项调整。</li>
+        <li>认真交往和长期伴侣在事前分不清，所以模型不给它们不同的价值，只用来描述。</li>
+      </ul></details>
+    <details><summary>局限</summary>
+      <ul>
+        <li>参数大多是假设，结果是模型推算，不是对某个具体的人的判断。</li>
+        <li>研究发现，在真正相处之前，几乎没法预测两个人长期合不合适。</li>
+        <li>心动很高的时候，人很难看清对方的作妖程度，作妖分可能偏低。</li>
+        <li>模型里关系推进得比现实快，「第几周」只是粗略的参考。</li>
+      </ul></details>
+    <details><summary>边界和隐私</summary>
+      <ul>
+        <li>只给你自己做参考用。不要给具体的人打分并分享或记录下来。</li>
+        <li>对方没有回应或拒绝了，就尊重 TA，不要反复推进。</li>
+        <li>适用于成年人。</li>
+        <li>页面不收集、不上传任何数据。</li>
+      </ul></details>
+  </section>
+
+  <footer>恋爱函数 v<span id="ver"></span>。模型、代码和文字由 AI 协助完成。</footer>
+</main>
+
+<script src="data.js"></script>
+<script src="logic.js"></script>
+<script>
+(function () {
+  var D = window.LOVE_DATA;
+  var state = { stage: 1, weeks: 6, x: 8, y: 6, yUnknown: false, warm: 2, cold: 0, prior: 'unsure', reject: 'mid', miss: 'mid' };
+  var meme = false, chartMode = 'model';
+  var NAMES = ['不建议投入', '暧昧', '认真交往', '长期伴侣'];
+  var MEME = ['禁飞区 / 危险区', '暧昧区', '女友区', '老婆区'];
+  var COLORS = ['--z-none', '--z-flirt', '--z-serious', '--z-long'];
+  var css = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
+
+  function zoneName(level, reason) {
+    if (meme) {
+      if (level === 0) return reason === 'danger' ? '危险区' : '禁飞区';
+      return MEME[level];
+    }
+    return NAMES[level];
+  }
+
+  // segmented buttons
+  document.querySelectorAll('.seg').forEach(function (seg) {
+    var name = seg.getAttribute('data-name');
+    seg.querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var v = b.getAttribute('data-v');
+        state[name] = (name === 'stage' || name === 'weeks') ? Number(v) : v;
+        render();
+      });
+    });
+  });
+  // steppers
+  document.querySelectorAll('.stepper').forEach(function (st) {
+    var name = st.getAttribute('data-name');
+    var btns = st.querySelectorAll('button');
+    btns[0].addEventListener('click', function () { state[name] = Math.max(0, state[name] - 1); render(); });
+    btns[1].addEventListener('click', function () { state[name] = Math.min(30, state[name] + 1); render(); });
+  });
+  var xi = document.getElementById('x'), yi = document.getElementById('y'), yunk = document.getElementById('yunk');
+  xi.addEventListener('input', function () { state.x = Number(xi.value); render(); });
+  yi.addEventListener('input', function () { state.y = Number(yi.value); render(); });
+  yunk.addEventListener('change', function () { state.yUnknown = yunk.checked; render(); });
+  document.getElementById('meme').addEventListener('click', function () { meme = !meme; render(); });
+  document.getElementById('chartmode').addEventListener('click', function () {
+    chartMode = chartMode === 'model' ? 'original' : 'model'; render();
+  });
+
+  function render() {
+    // inputs
+    document.querySelectorAll('.seg').forEach(function (seg) {
+      var name = seg.getAttribute('data-name');
+      seg.querySelectorAll('button').forEach(function (b) {
+        b.classList.toggle('on', String(state[name]) === b.getAttribute('data-v'));
+      });
+    });
+    document.querySelectorAll('.stepper').forEach(function (st) {
+      st.querySelector('span').textContent = state[st.getAttribute('data-name')];
+    });
+    xi.value = state.x; document.getElementById('xv').textContent = state.x;
+    yi.value = state.y; document.getElementById('yv').textContent = state.yUnknown ? '—' : state.y;
+    yunk.checked = state.yUnknown;
+    var early = state.stage === 0;
+    document.getElementById('yq').classList.toggle('disabled', early);
+    document.getElementById('signals').classList.toggle('disabled', early);
+    document.getElementById('yrow').classList.toggle('disabled', state.yUnknown);
+
+    // result
+    var r = LoveLogic.advise(state, D);
+    var z = r.zone;
+    var zEl = document.getElementById('zone');
+    zEl.textContent = zoneName(z.level, z.reason);
+    zEl.style.background = css(z.level === 0 && z.reason === 'danger' ? '--z-danger' : COLORS[z.level]);
+    document.getElementById('meme').textContent = meme ? '中性名字' : '梗版名字';
+    document.getElementById('unicorn').innerHTML = r.unicorn ? '<span class="tag">独角兽</span>' : '';
+    var pb = document.getElementById('probbox');
+    if (z.probs) {
+      var html = '<div class="probs">';
+      for (var L = 0; L < 4; L++) {
+        if (z.probs[L] > 0) html += '<div style="width:' + (100 * z.probs[L]) + '%;background:' + css(COLORS[L]) + '"></div>';
+      }
+      html += '</div><div class="note">作妖还看不出来：按一般人的分布估计，' +
+        [0, 1, 2, 3].filter(function (L) { return z.probs[L] > 0.005; }).map(function (L) {
+          return zoneName(L, '') + ' ' + Math.round(100 * z.probs[L]) + '%';
+        }).join('，') + '</div>';
+      pb.innerHTML = html;
+    } else { pb.innerHTML = ''; }
+    document.getElementById('advice').textContent = r.title;
+    document.getElementById('why').textContent = r.why;
+    document.getElementById('why2').textContent = r.why2 || '';
+    document.getElementById('tips').innerHTML = r.tips.map(function (t) { return '<li>' + t + '</li>'; }).join('');
+
+    drawChart(r);
+    document.getElementById('agree').textContent = Math.round(100 * D.chart.agreement) + '%';
+    document.getElementById('agree2').textContent = Math.round(100 * D.chart.agreement_drawn) + '%';
+    document.getElementById('ver').textContent = D.version;
+  }
+
+  function drawChart(r) {
+    var cv = document.getElementById('chart'), ctx = cv.getContext('2d');
+    var W = cv.width, H = cv.height, padL = 70, padR = 20, padT = 20, padB = 60;
+    var gx = D.chart.x, gy = D.chart.y, grid = D.chart[chartMode];
+    var pw = (W - padL - padR) / gx.length, ph = (H - padT - padB) / gy.length;
+    var xLine = chartMode === 'model' ? D.settings.x_serious : 8;   // the original chart draws serious from 8
+    ctx.clearRect(0, 0, W, H);
+    for (var rI = 0; rI < gy.length; rI++) {
+      for (var c = 0; c < gx.length; c++) {
+        var L = grid[rI][c], x = gx[c], y = gy[rI];
+        var col = COLORS[L];
+        if (L === 0 && x >= 5) col = '--z-danger';
+        if (L === 3 && x >= xLine && y < 5) col = '--z-unicorn';
+        ctx.fillStyle = css(col);
+        ctx.fillRect(padL + c * pw, H - padB - (rI + 1) * ph, pw + 0.6, ph + 0.6);
+      }
+    }
+    ctx.fillStyle = css('--muted'); ctx.font = '24px sans-serif'; ctx.textAlign = 'center';
+    [0, 2, 4, 5, 6, 7, 8, 10].forEach(function (v) {
+      ctx.fillText(v, padL + (v / 10) * (W - padL - padR), H - padB + 30);
+    });
+    ctx.textAlign = 'right';
+    [4, 5, 6, 7, 8, 9, 10].forEach(function (v) {
+      ctx.fillText(v, padL - 12, H - padB - ((v - 4) / 6) * (H - padT - padB) + 8);
+    });
+    ctx.textAlign = 'center';
+    ctx.fillText('心动程度', padL + (W - padL - padR) / 2, H - 8);
+    ctx.save(); ctx.translate(22, padT + (H - padT - padB) / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillText('作妖程度', 0, 0); ctx.restore();
+    // your point
+    if (state.stage >= 1 && !state.yUnknown) {
+      var px = padL + (state.x / 10) * (W - padL - padR), py = H - padB - ((state.y - 4) / 6) * (H - padT - padB);
+      ctx.beginPath(); ctx.arc(px, py, 14, 0, 2 * Math.PI);
+      ctx.fillStyle = css('--text'); ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py, 7, 0, 2 * Math.PI); ctx.fillStyle = css('--card'); ctx.fill();
+      document.getElementById('charthint').textContent = '黑点是你现在的位置。' + (chartMode === 'model' ? '当前显示：模型算出的边界。' : '当前显示：原图的分区。');
+    } else {
+      document.getElementById('charthint').textContent = '填了作妖程度后，会在图上标出你的位置。' + (chartMode === 'model' ? '当前显示：模型算出的边界。' : '当前显示：原图的分区。');
+    }
+    var items = [['--z-none', meme ? '禁飞区' : '心动不够'], ['--z-danger', meme ? '危险区' : '作妖太多'],
+      ['--z-flirt', zoneName(1, '')], ['--z-serious', zoneName(2, '')], ['--z-long', zoneName(3, '')], ['--z-unicorn', '独角兽']];
+    document.getElementById('legend').innerHTML = items.map(function (it) {
+      return '<span><i style="background:' + css(it[0]) + '"></i>' + it[1] + '</span>';
+    }).join('');
+    document.getElementById('chartmode').textContent = chartMode === 'model' ? '切换到原图' : '切换到模型';
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
