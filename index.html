@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>恋爱函数：要不要往前走一步</title>
-<meta name="description" content="输入心动程度、对方的回应和相处感受，按一个决策模型给出现在的区位和下一步建议。所有计算都在浏览器里完成。">
+<meta name="description" content="对一个你见过或认识的人：现在要不要往前走一步？填几个问题，直接给出下一步怎么做。所有计算都在浏览器里完成。">
 <style>
 :root {
   --bg: #f6f5f2; --card: #ffffff; --text: #1f2328; --muted: #646b73; --line: #e3e1dc;
@@ -48,17 +48,15 @@ input[type=range] { flex: 1; accent-color: var(--accent); }
 .result { border: 2px solid var(--accent); }
 .zone { display: inline-block; padding: 3px 10px; border-radius: 999px; font-weight: 600; font-size: 14px; color: #1f2328; }
 .tag { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--z-unicorn); color: #fff; }
-.advice { font-size: 22px; font-weight: 700; margin: 10px 0 4px; }
-.why { margin: 4px 0; }
-.probs { display: flex; height: 10px; border-radius: 6px; overflow: hidden; margin: 8px 0 2px; }
-.probs div { height: 100%; }
-.legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 13px; color: var(--muted); margin-top: 8px; }
-.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
-ul.tips { margin: 8px 0 0; padding-left: 20px; font-size: 14px; color: var(--muted); }
-canvas { width: 100%; height: auto; display: block; border-radius: 8px; }
+.advice { font-size: 24px; font-weight: 700; margin: 12px 0 8px; }
+.label { font-size: 13px; font-weight: 600; color: var(--muted); margin: 12px 0 2px; }
+.result p { margin: 0; }
+ul.after { margin: 0; padding-left: 20px; }
+ul.after li { margin: 2px 0; }
+.respect { margin-top: 14px !important; padding-top: 10px; border-top: 1px solid var(--line); }
 details { margin: 8px 0; }
 details summary { cursor: pointer; font-weight: 600; }
-details p, details li { font-size: 14px; }
+footer a { color: inherit; }
 .toggle { font-size: 13px; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; font: inherit; font-size: 13px; }
 footer { font-size: 12px; color: var(--muted); text-align: center; margin-top: 24px; }
 </style>
@@ -122,54 +120,19 @@ footer { font-size: 12px; color: var(--muted); text-align: center; margin-top: 2
   </section>
 
   <section class="card result" id="result" aria-live="polite">
-    <div><span class="zone" id="zone"></span><span id="unicorn"></span>
+    <div><span class="zone" id="zone"></span><span id="unicorn"></span> <span class="note" id="znote"></span>
       <button class="toggle" id="meme" style="float:right">梗版名字</button></div>
-    <div id="probbox"></div>
     <div class="advice" id="advice"></div>
-    <p class="why" id="why"></p>
-    <p class="why note" id="why2"></p>
-    <ul class="tips" id="tips"></ul>
+    <div class="label">怎么做</div>
+    <p id="how"></p>
+    <div class="label">之后</div>
+    <ul class="after" id="after"></ul>
+    <div class="label">为什么</div>
+    <p id="why"></p>
+    <p class="note respect">TA 拒绝或者没有回应，就尊重 TA，不要反复推进。这是模型的推算，不是对 TA 的判断。</p>
   </section>
 
-  <section class="card">
-    <h2>恋爱函数图</h2>
-    <p class="note" id="charthint"></p>
-    <canvas id="chart" width="1040" height="680"></canvas>
-    <div class="legend" id="legend"></div>
-    <p class="note"><button class="toggle" id="chartmode">切换到原图</button></p>
-  </section>
-
-  <section class="card">
-    <h2>这是怎么算的</h2>
-    <details><summary>一句话</summary>
-      <p>把「要不要往前一步」写成一个随相处推进的决策问题：每走一步都可能被拒，但也能从 TA 的回应里多知道一点；等太久，TA 可能有了别人或离开这个圈子。模型算出在每种情况下怎么做期望上最划算，再把结果写成简单的规则。</p></details>
-    <details><summary>区位是怎么来的</summary>
-      <p>来自网上流传的「外貌 × 作妖」分区图，作妖从 4 开始。我们没有照搬它，而是用一个「先筛选、再权衡」的价值模型重新算出各区的边界：心动先要过门槛（5 分才值得接触，7 分才谈得上认真），然后在心动带来的好处和作妖带来的消耗之间权衡；关系越长，作妖的消耗越被放大。原图要心动 8 分才算认真，我们放宽到了 7 分：心动 7 分的人也会认真交往。按放宽后的门槛，模型的边界和原图一致约 <span id="agree"></span>；和原图原样相比一致约 <span id="agree2"></span>，差别主要在心动 7–8 分这一条。</p></details>
-    <details><summary>主要假设</summary>
-      <ul>
-        <li>TA 对你有没有意思，一开始只能靠整体感觉估计，之后每一次回应都会更新这个判断。</li>
-        <li>出于礼貌，不感兴趣的人也常常热情回应，所以热情说明的问题比冷淡少。</li>
-        <li>每过一周，TA 有大约 3% 的可能有了别人或离开这个圈子。这个数是假设的。</li>
-        <li>被拒的难受来得快、走得快；错过的后悔来得慢、持续久。默认值参考了一位用户的真实打分和相关研究的方向，可以在第 7 项调整。</li>
-        <li>认真交往和长期伴侣在事前分不清，所以模型不给它们不同的价值，只用来描述。</li>
-      </ul></details>
-    <details><summary>局限</summary>
-      <ul>
-        <li>参数大多是假设，结果是模型推算，不是对某个具体的人的判断。</li>
-        <li>研究发现，在真正相处之前，几乎没法预测两个人长期合不合适。</li>
-        <li>心动很高的时候，人很难看清对方的作妖程度，作妖分可能偏低。</li>
-        <li>模型里关系推进得比现实快，「第几周」只是粗略的参考。</li>
-      </ul></details>
-    <details><summary>边界和隐私</summary>
-      <ul>
-        <li>只给你自己做参考用。不要给具体的人打分并分享或记录下来。</li>
-        <li>对方没有回应或拒绝了，就尊重 TA，不要反复推进。</li>
-        <li>适用于成年人。</li>
-        <li>页面不收集、不上传任何数据。</li>
-      </ul></details>
-  </section>
-
-  <footer>恋爱函数 v<span id="ver"></span>。模型、代码和文字由 AI 协助完成。</footer>
+  <footer>恋爱函数 v1.1.0 · 仅供成年人参考 · 页面不收集任何数据<br><a href="https://github.com/candyrabbit7/love-function#readme">怎么算的</a> · 模型、代码和文字由 AI 协助完成。</footer>
 </main>
 
 <script src="data.js"></script>
@@ -178,7 +141,7 @@ footer { font-size: 12px; color: var(--muted); text-align: center; margin-top: 2
 (function () {
   var D = window.LOVE_DATA;
   var state = { stage: 1, weeks: 6, x: 8, y: 6, yUnknown: false, warm: 2, cold: 0, prior: 'unsure', reject: 'mid', miss: 'mid' };
-  var meme = false, chartMode = 'model';
+  var meme = false;
   var NAMES = ['不建议投入', '暧昧', '认真交往', '长期伴侣'];
   var MEME = ['禁飞区 / 危险区', '暧昧区', '女友区', '老婆区'];
   var COLORS = ['--z-none', '--z-flirt', '--z-serious', '--z-long'];
@@ -215,9 +178,6 @@ footer { font-size: 12px; color: var(--muted); text-align: center; margin-top: 2
   yi.addEventListener('input', function () { state.y = Number(yi.value); render(); });
   yunk.addEventListener('change', function () { state.yUnknown = yunk.checked; render(); });
   document.getElementById('meme').addEventListener('click', function () { meme = !meme; render(); });
-  document.getElementById('chartmode').addEventListener('click', function () {
-    chartMode = chartMode === 'model' ? 'original' : 'model'; render();
-  });
 
   function render() {
     // inputs
@@ -246,74 +206,11 @@ footer { font-size: 12px; color: var(--muted); text-align: center; margin-top: 2
     zEl.style.background = css(z.level === 0 && z.reason === 'danger' ? '--z-danger' : COLORS[z.level]);
     document.getElementById('meme').textContent = meme ? '中性名字' : '梗版名字';
     document.getElementById('unicorn').innerHTML = r.unicorn ? '<span class="tag">独角兽</span>' : '';
-    var pb = document.getElementById('probbox');
-    if (z.probs) {
-      var html = '<div class="probs">';
-      for (var L = 0; L < 4; L++) {
-        if (z.probs[L] > 0) html += '<div style="width:' + (100 * z.probs[L]) + '%;background:' + css(COLORS[L]) + '"></div>';
-      }
-      html += '</div><div class="note">作妖还看不出来：按一般人的分布估计，' +
-        [0, 1, 2, 3].filter(function (L) { return z.probs[L] > 0.005; }).map(function (L) {
-          return zoneName(L, '') + ' ' + Math.round(100 * z.probs[L]) + '%';
-        }).join('，') + '</div>';
-      pb.innerHTML = html;
-    } else { pb.innerHTML = ''; }
+    document.getElementById('znote').textContent = (state.stage === 0 || state.yUnknown) && state.x >= 5 ? '作妖还看不出来，按一般人估计' : '';
     document.getElementById('advice').textContent = r.title;
+    document.getElementById('how').textContent = r.how;
+    document.getElementById('after').innerHTML = r.after.map(function (t) { return '<li>' + t + '</li>'; }).join('');
     document.getElementById('why').textContent = r.why;
-    document.getElementById('why2').textContent = r.why2 || '';
-    document.getElementById('tips').innerHTML = r.tips.map(function (t) { return '<li>' + t + '</li>'; }).join('');
-
-    drawChart(r);
-    document.getElementById('agree').textContent = Math.round(100 * D.chart.agreement) + '%';
-    document.getElementById('agree2').textContent = Math.round(100 * D.chart.agreement_drawn) + '%';
-    document.getElementById('ver').textContent = D.version;
-  }
-
-  function drawChart(r) {
-    var cv = document.getElementById('chart'), ctx = cv.getContext('2d');
-    var W = cv.width, H = cv.height, padL = 70, padR = 20, padT = 20, padB = 60;
-    var gx = D.chart.x, gy = D.chart.y, grid = D.chart[chartMode];
-    var pw = (W - padL - padR) / gx.length, ph = (H - padT - padB) / gy.length;
-    var xLine = chartMode === 'model' ? D.settings.x_serious : 8;   // the original chart draws serious from 8
-    ctx.clearRect(0, 0, W, H);
-    for (var rI = 0; rI < gy.length; rI++) {
-      for (var c = 0; c < gx.length; c++) {
-        var L = grid[rI][c], x = gx[c], y = gy[rI];
-        var col = COLORS[L];
-        if (L === 0 && x >= 5) col = '--z-danger';
-        if (L === 3 && x >= xLine && y < 5) col = '--z-unicorn';
-        ctx.fillStyle = css(col);
-        ctx.fillRect(padL + c * pw, H - padB - (rI + 1) * ph, pw + 0.6, ph + 0.6);
-      }
-    }
-    ctx.fillStyle = css('--muted'); ctx.font = '24px sans-serif'; ctx.textAlign = 'center';
-    [0, 2, 4, 5, 6, 7, 8, 10].forEach(function (v) {
-      ctx.fillText(v, padL + (v / 10) * (W - padL - padR), H - padB + 30);
-    });
-    ctx.textAlign = 'right';
-    [4, 5, 6, 7, 8, 9, 10].forEach(function (v) {
-      ctx.fillText(v, padL - 12, H - padB - ((v - 4) / 6) * (H - padT - padB) + 8);
-    });
-    ctx.textAlign = 'center';
-    ctx.fillText('心动程度', padL + (W - padL - padR) / 2, H - 8);
-    ctx.save(); ctx.translate(22, padT + (H - padT - padB) / 2); ctx.rotate(-Math.PI / 2);
-    ctx.fillText('作妖程度', 0, 0); ctx.restore();
-    // your point
-    if (state.stage >= 1 && !state.yUnknown) {
-      var px = padL + (state.x / 10) * (W - padL - padR), py = H - padB - ((state.y - 4) / 6) * (H - padT - padB);
-      ctx.beginPath(); ctx.arc(px, py, 14, 0, 2 * Math.PI);
-      ctx.fillStyle = css('--text'); ctx.fill();
-      ctx.beginPath(); ctx.arc(px, py, 7, 0, 2 * Math.PI); ctx.fillStyle = css('--card'); ctx.fill();
-      document.getElementById('charthint').textContent = '黑点是你现在的位置。' + (chartMode === 'model' ? '当前显示：模型算出的边界。' : '当前显示：原图的分区。');
-    } else {
-      document.getElementById('charthint').textContent = '填了作妖程度后，会在图上标出你的位置。' + (chartMode === 'model' ? '当前显示：模型算出的边界。' : '当前显示：原图的分区。');
-    }
-    var items = [['--z-none', meme ? '禁飞区' : '心动不够'], ['--z-danger', meme ? '危险区' : '作妖太多'],
-      ['--z-flirt', zoneName(1, '')], ['--z-serious', zoneName(2, '')], ['--z-long', zoneName(3, '')], ['--z-unicorn', '独角兽']];
-    document.getElementById('legend').innerHTML = items.map(function (it) {
-      return '<span><i style="background:' + css(it[0]) + '"></i>' + it[1] + '</span>';
-    }).join('');
-    document.getElementById('chartmode').textContent = chartMode === 'model' ? '切换到原图' : '切换到模型';
   }
 
   render();
